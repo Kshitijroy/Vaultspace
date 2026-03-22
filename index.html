@@ -77,12 +77,12 @@ body::before{content:'';position:fixed;inset:0;z-index:0;
 /* ════════════════════════════════════════════
    BOOT SCREEN
 ════════════════════════════════════════════ */
-#pg-boot{position:fixed;inset:0;z-index:8000;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px}
-.boot-logo{font-size:40px;animation:pulse 2s infinite}
+
+
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
-.boot-spinner{width:40px;height:40px;border:2px solid var(--border);border-top-color:var(--cyan);border-radius:50%;animation:spin .8s linear infinite}
+
 @keyframes spin{to{transform:rotate(360deg)}}
-#boot-msg{font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--dim);text-transform:uppercase}
+
 
 /* ════════════════════════════════════════════
    LANDING — NAVBAR
@@ -355,15 +355,10 @@ body::before{content:'';position:fixed;inset:0;z-index:0;
 <body>
 <div id="toasts"></div>
 
-<!-- ══════════ BOOT ══════════ -->
-<div id="pg-boot">
-  <div class="boot-logo">🗄️</div>
-  <div class="boot-spinner"></div>
-  <div id="bmsg">Loading VaultSpace...</div>
-</div>
+<!-- boot screen removed -->
 
 <!-- ══════════ LANDING ══════════ -->
-<div id="pg-landing" class="hidden">
+<div id="pg-landing">
 
   <!-- NAVBAR -->
   <nav class="l-nav">
@@ -706,8 +701,9 @@ function T(msg,t='i',ms=4000){
    PAGE SWITCHING
 ══════════════════════════════════════ */
 function showOnly(id){
-  ['pg-boot','pg-landing','pg-auth','pg-dash'].forEach(p=>{
-    document.getElementById(p).classList.toggle('hidden',p!==id);
+  ['pg-landing','pg-auth','pg-dash'].forEach(p=>{
+    const el=document.getElementById(p);
+    if(el) el.classList.toggle('hidden',p!==id);
   });
   if(id==='pg-landing') window.scrollTo(0,0);
 }
@@ -1503,7 +1499,7 @@ function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 /* ══════════════════════════════════════
    BOOT — Dynamic Firebase Loader
 ══════════════════════════════════════ */
-function setBM(m){const el=document.getElementById('bmsg');if(el)el.textContent=m;}
+function setBM(m){}
 function ldS(src){return new Promise((ok,fail)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>fail(new Error('Load failed: '+src));document.head.appendChild(s);});}
 
 async function boot(){
