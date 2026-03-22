@@ -1507,78 +1507,52 @@ function setBM(m){const el=document.getElementById('bmsg');if(el)el.textContent=
 function ldS(src){return new Promise((ok,fail)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>fail(new Error('Load failed: '+src));document.head.appendChild(s);});}
 
 async function boot(){
-  // Hard fallback: if ANYTHING fails within 12s, just show landing
-  const hardFallback = setTimeout(()=>{
-    if(document.getElementById('pg-boot') && !document.getElementById('pg-boot').classList.contains('hidden')){
-      showOnly('pg-landing');
-    }
-  }, 12000);
+  // Show landing INSTANTLY — no waiting for Firebase
+  showOnly('pg-landing');
 
-  setBM('Loading Firebase...');
-  const v='10.12.0', cdn=`https://www.gstatic.com/firebasejs/${v}/`;
-
-  // Load each script with individual 8s timeout
+  // Load Firebase in background silently
   function ldSafe(src){
     return new Promise(res=>{
       const s=document.createElement('script');
       s.src=src;
       s.onload=()=>res(true);
       s.onerror=()=>res(false);
-      setTimeout(()=>res(false), 8000);
+      setTimeout(()=>res(false),10000);
       document.head.appendChild(s);
     });
   }
 
-  const r1=await ldSafe(cdn+'firebase-app-compat.js');
-  if(!r1){ clearTimeout(hardFallback); showOnly('pg-landing'); T('Firebase load failed. Check internet.','e',6000); return; }
-
-  const r2=await ldSafe(cdn+'firebase-auth-compat.js');
-  const r3=await ldSafe(cdn+'firebase-firestore-compat.js');
-  if(!r2||!r3){ clearTimeout(hardFallback); showOnly('pg-landing'); T('Firebase load incomplete. Try refreshing.','e',6000); return; }
+  const v='10.12.0', cdn=`https://www.gstatic.com/firebasejs/${v}/`;
+  const ok1=await ldSafe(cdn+'firebase-app-compat.js');
+  if(!ok1){ T('No internet? Firebase failed to load.','e',8000); return; }
+  const ok2=await ldSafe(cdn+'firebase-auth-compat.js');
+  const ok3=await ldSafe(cdn+'firebase-firestore-compat.js');
+  if(!ok2||!ok3){ T('Firebase partially loaded. Try refreshing.','e',6000); return; }
 
   // Razorpay optional
   ldSafe('https://checkout.razorpay.com/v1/checkout.js');
 
-  setBM('Initialising...');
+  if(!window.firebase){ return; }
   try{
-    if(!window.firebase){ clearTimeout(hardFallback); showOnly('pg-landing'); return; }
     if(firebase.apps.length===0) firebase.initializeApp(FB);
     db=firebase.firestore();
     auth=firebase.auth();
-  }catch(e){
-    clearTimeout(hardFallback);
-    T('Firebase init error: '+e.message,'e',6000);
-    showOnly('pg-landing');
-    return;
-  }
+  }catch(e){ T('Firebase init error: '+e.message,'e',6000); return; }
 
-  setBM('Checking session...');
+  // Restore session if user was already logged in
   let done=false;
-  // Show landing after 3s if auth doesn't respond
-  const tmo=setTimeout(()=>{
-    if(!done){ done=true; clearTimeout(hardFallback); showOnly('pg-landing'); }
-  }, 3000);
-
-  try{
-    auth.onAuthStateChanged(async user=>{
-      if(done||authBusy) return;
-      done=true;
-      clearTimeout(tmo);
-      clearTimeout(hardFallback);
-      if(user && !UD){
-        CU=user;
-        try{
-          const doc=await db.collection('users').doc(user.uid).get();
-          if(doc.exists){ UD=doc.data(); goHome(); }
-          else{ showOnly('pg-landing'); }
-        }catch(e){ showOnly('pg-landing'); }
-      }else{
-        showOnly('pg-landing');
-      }
-    });
-  }catch(e){
-    if(!done){ done=true; clearTimeout(tmo); clearTimeout(hardFallback); showOnly('pg-landing'); }
-  }
+  const tmo=setTimeout(()=>{ done=true; },3000);
+  auth.onAuthStateChanged(async user=>{
+    if(done||authBusy) return;
+    done=true; clearTimeout(tmo);
+    if(user&&!UD){
+      CU=user;
+      try{
+        const doc=await db.collection('users').doc(user.uid).get();
+        if(doc.exists){ UD=doc.data(); goHome(); }
+      }catch(e){}
+    }
+  });
 }
 
 window.addEventListener('DOMContentLoaded', boot);
