@@ -684,6 +684,7 @@ let db,auth;
 let CU=null,UD=null;
 let aMode='register',selRole=null,curTab=null,selRental=null;
 let authBusy=false;
+let fbReady=false; // becomes true once Firebase is initialised
 
 /* ══════════════════════════════════════
    TOAST
@@ -711,6 +712,32 @@ function goLanding(){showOnly('pg-landing');}
 function goAuth(mode){
   aMode=mode; updateAuthUI(); showOnly('pg-auth');
   setTimeout(()=>document.getElementById('a-email')?.focus(),100);
+  // If Firebase not ready yet, show a subtle notice
+  if(!fbReady){
+    const btn=document.getElementById('a-btn');
+    const lbl=document.getElementById('a-lbl');
+    if(btn&&lbl){
+      btn.disabled=true;
+      lbl.textContent='Connecting...';
+      // Poll until ready
+      const poll=setInterval(()=>{
+        if(fbReady){
+          clearInterval(poll);
+          btn.disabled=false;
+          lbl.textContent=aMode==='login'?'Sign In':'Create Account';
+        }
+      },300);
+      // Give up after 15s
+      setTimeout(()=>{
+        clearInterval(poll);
+        if(!fbReady){
+          lbl.textContent=aMode==='login'?'Sign In':'Create Account';
+          btn.disabled=false;
+          T('Connection slow. Try clicking Sign In/Register again.','i',5000);
+        }
+      },15000);
+    }
+  }
 }
 function goHome(){authBusy=false;showOnly('pg-dash');buildDash();}
 
@@ -744,6 +771,10 @@ function withTO(p,ms,msg){
 }
 
 async function doAuth(){
+  if(!fbReady||!auth||!db){
+    T('Still connecting to Firebase. Please wait a moment and try again.','e',5000);
+    return;
+  }
   const email=document.getElementById('a-email').value.trim();
   const pass=document.getElementById('a-pass').value;
   if(!email||!pass){T('Enter email and password','e');return;}
@@ -1533,6 +1564,7 @@ async function boot(){
     if(firebase.apps.length===0) firebase.initializeApp(FB);
     db=firebase.firestore();
     auth=firebase.auth();
+    fbReady=true; // Firebase is now ready
   }catch(e){ T('Firebase init error: '+e.message,'e',6000); return; }
 
   // Restore session if user was already logged in
